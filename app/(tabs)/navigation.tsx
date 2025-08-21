@@ -655,7 +655,8 @@ export default function NavigationScreen() {
       <DemandModal
         visible={showDemandModal}
         onClose={() => setShowDemandModal(false)}
-        onSelect={handleDemandSelect}
+        onAdd={handleDemandSelect}
+        onClear={handleClearDemand}
         currentDemand={demandValue}
         baseFare={BASE_FARE}
         currentDistance={distance}

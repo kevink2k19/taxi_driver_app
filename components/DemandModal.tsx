@@ -180,7 +180,7 @@ export default function DemandModal({
                 <View style={styles.headerContent}>
                   <Text style={styles.headerTitle}>Select Demand Rate</Text>
                   <Text style={styles.headerSubtitle}>
-                    Add demand charges to your trip (can select multiple times)
+                    Choose demand pricing for your trip
                   </Text>
                 </View>
                 <TouchableOpacity 
@@ -463,5 +463,18 @@ const styles = StyleSheet.create({
   },
   clearDemandTextSelected: {
     color: 'white',
+  },
+  selectedIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
