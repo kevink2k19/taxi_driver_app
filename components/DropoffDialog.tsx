@@ -737,7 +737,7 @@ export default function DropoffDialog({
                   accessibilityLabel="Cancel trip completion"
                   accessibilityRole="button"
                 >
-                  <Text style={styles.fareValue}>2,000 MMK</Text>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
