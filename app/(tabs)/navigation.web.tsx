@@ -1135,6 +1135,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     elevation: 2,
     borderRadius: 12,
+  },
   priceIndicator: {
     width: 32,
     height: 32,
@@ -1245,6 +1246,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  demandValue: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
+  },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1297,10 +1304,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#10B981',
-  },
-});
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 2,
   },
 });
