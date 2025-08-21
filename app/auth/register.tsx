@@ -13,18 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { 
-  Phone, 
-  MessageSquare, 
-  Eye, 
-  EyeOff, 
-  ArrowRight, 
-  LogIn, 
-  User, 
-  Mail,
-  Lock,
-  CheckCircle
-} from 'lucide-react-native';
+import { Phone, MessageSquare, Eye, EyeOff, ArrowRight, LogIn, User, Mail, Lock, CircleCheck as CheckCircle } from 'lucide-react-native';
 
 interface RegisterFormData {
   fullName: string;
