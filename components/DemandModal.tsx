@@ -16,7 +16,8 @@ const { width } = Dimensions.get('window');
 interface DemandModalProps {
   visible: boolean;
   onClose: () => void;
-  onSelect: (demandValue: number) => void;
+  onAdd: (demandValue: number) => void;
+  onClear: () => void;
   currentDemand: number;
   baseFare: number;
   currentDistance: number;
@@ -24,15 +25,16 @@ interface DemandModalProps {
 }
 
 const DEMAND_OPTIONS = [
-  { value: 500, label: 'Low Demand', color: '#10B981', description: 'Standard rate' },
-  { value: 1000, label: 'Medium Demand', color: '#F59E0B', description: 'Moderate increase' },
-  { value: 2000, label: 'High Demand', color: '#EF4444', description: 'Peak hours' },
+  { value: 500, label: 'Add 500 MMK', color: '#10B981', description: 'Low demand increment' },
+  { value: 1000, label: 'Add 1000 MMK', color: '#F59E0B', description: 'Medium demand increment' },
+  { value: 2000, label: 'Add 2000 MMK', color: '#EF4444', description: 'High demand increment' },
 ];
 
 export default function DemandModal({
   visible,
   onClose,
-  onSelect,
+  onAdd,
+  onClear,
   currentDemand,
   baseFare,
   currentDistance,
@@ -80,23 +82,26 @@ export default function DemandModal({
     onClose();
   };
 
-  const handleOptionSelect = (demandValue: number) => {
-    onSelect(demandValue);
+  const handleAddDemand = (demandValue: number) => {
+    onAdd(demandValue);
+  };
+
+  const handleClearDemand = () => {
+    onClear();
   };
 
   const renderDemandOption = (option: typeof DEMAND_OPTIONS[0]) => {
-    const isSelected = currentDemand === option.value;
-    const totalWithDemand = calculateTotal(option.value);
+    const newTotalDemand = currentDemand + option.value;
+    const totalWithNewDemand = calculateTotal(newTotalDemand);
 
     return (
       <TouchableOpacity
         key={option.value}
         style={[
           styles.demandOption,
-          isSelected && styles.demandOptionSelected,
           { borderColor: option.color }
         ]}
-        onPress={() => handleOptionSelect(option.value)}
+        onPress={() => handleAddDemand(option.value)}
         accessibilityLabel={`Select ${option.label} for ${option.value} MMK`}
         accessibilityRole="button"
       >
@@ -105,31 +110,29 @@ export default function DemandModal({
             <TrendingUp size={20} color="white" />
           </View>
           <View style={styles.demandOptionInfo}>
-            <Text style={[styles.demandOptionLabel, isSelected && styles.demandOptionLabelSelected]}>
+            <Text style={styles.demandOptionLabel}>
               {option.label}
             </Text>
-            <Text style={[styles.demandOptionDescription, isSelected && styles.demandOptionDescriptionSelected]}>
+            <Text style={styles.demandOptionDescription}>
               {option.description}
             </Text>
           </View>
-          {isSelected && (
-            <View style={styles.selectedIndicator}>
-              <Text style={styles.selectedText}>✓</Text>
-            </View>
-          )}
+          <View style={styles.addIndicator}>
+            <Text style={styles.addText}>+</Text>
+          </View>
         </View>
 
         <View style={styles.demandOptionPricing}>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Demand Charge:</Text>
+            <Text style={styles.priceLabel}>Will Add:</Text>
             <Text style={[styles.priceValue, { color: option.color }]}>
               +{option.value.toLocaleString()} MMK
             </Text>
           </View>
           <View style={styles.priceRow}>
-            <Text style={styles.totalLabel}>Total Fare:</Text>
+            <Text style={styles.totalLabel}>New Total:</Text>
             <Text style={styles.totalValue}>
-              {totalWithDemand.toLocaleString()} MMK
+              {totalWithNewDemand.toLocaleString()} MMK
             </Text>
           </View>
         </View>
@@ -177,7 +180,7 @@ export default function DemandModal({
                 <View style={styles.headerContent}>
                   <Text style={styles.headerTitle}>Select Demand Rate</Text>
                   <Text style={styles.headerSubtitle}>
-                    Choose demand pricing for your trip
+                    Add demand charges to your trip (can select multiple times)
                   </Text>
                 </View>
                 <TouchableOpacity 
