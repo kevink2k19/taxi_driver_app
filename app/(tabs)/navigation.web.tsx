@@ -158,6 +158,9 @@ export default function NavigationScreen() {
   const [showDemandModal, setShowDemandModal] = useState(false);
   const [demandValue, setDemandValue] = useState(0);
   const [totalFare, setTotalFare] = useState(BASE_FARE);
+  const [showDemandModal, setShowDemandModal] = useState(false);
+  const [demandValue, setDemandValue] = useState(0);
+  const [totalFare, setTotalFare] = useState(BASE_FARE);
 
   // Animation values
   const distanceAnim = useRef(new Animated.Value(INITIAL_DISTANCE)).current;
@@ -167,6 +170,14 @@ export default function NavigationScreen() {
 
   // Timers
   const tripTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    // Calculate total fare including demand
+    const distanceFare = distance * FARE_RATE;
+    const calculatedTotal = BASE_FARE + distanceFare + demandValue;
+    setTotalFare(calculatedTotal);
+    setFare(calculatedTotal);
+  }, [distance, demandValue]);
 
   useEffect(() => {
     // Calculate total fare including demand
@@ -218,6 +229,11 @@ export default function NavigationScreen() {
         useNativeDriver: false,
       }),
     ]).start();
+  };
+
+  const handleDemandSelect = (selectedDemand: number) => {
+    setDemandValue(selectedDemand);
+    setShowDemandModal(false);
   };
 
   const handleDemandSelect = (selectedDemand: number) => {
@@ -321,6 +337,7 @@ export default function NavigationScreen() {
     fareAnim.setValue(resetFare);
     setEta('--:--');
     setDemandValue(0);
+    setDemandValue(0);
   };
 
   const handleCancelOrder = () => {
@@ -351,6 +368,7 @@ export default function NavigationScreen() {
             distanceAnim.setValue(INITIAL_DISTANCE);
             fareAnim.setValue(resetFare);
             setEta('--:--');
+            setDemandValue(0);
             setDemandValue(0);
             
             // Hide cancel button
@@ -560,6 +578,18 @@ export default function NavigationScreen() {
             </View>
 
             <View style={styles.counterItem}>
+              <TouchableOpacity 
+                style={styles.demandButton}
+                onPress={() => setShowDemandModal(true)}
+              >
+                <Text style={styles.demandButtonText}>Demand</Text>
+                {demandValue > 0 && (
+                  <Text style={styles.demandValue}>+{demandValue}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.counterItem}>
               <Clock size={20} color="#F59E0B" />
               <Text style={styles.counterValue}>{eta}</Text>
               <Text style={styles.counterLabel}>ETA</Text>
@@ -652,6 +682,17 @@ export default function NavigationScreen() {
         onClose={() => setShowDropoffDialog(false)}
         onConfirm={handleDropoffConfirm}
         tripDetails={tripDetails}
+      />
+
+      {/* Demand Modal */}
+      <DemandModal
+        visible={showDemandModal}
+        onClose={() => setShowDemandModal(false)}
+        onSelect={handleDemandSelect}
+        currentDemand={demandValue}
+        baseFare={BASE_FARE}
+        currentDistance={distance}
+        fareRate={FARE_RATE}
       />
 
       {/* Demand Modal */}
@@ -1035,6 +1076,31 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  demandButton: {
+    backgroundColor: '#8B5CF6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  demandButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  demandValue: {
+    color: '#FEF3C7',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
   },
   demandButton: {
     backgroundColor: '#8B5CF6',
