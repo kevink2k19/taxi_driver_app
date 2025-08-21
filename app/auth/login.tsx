@@ -39,15 +39,15 @@ export default function LoginScreen() {
   const [showOtp, setShowOtp] = useState(false);
 
   // Timer for OTP resend
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (otpTimer > 0) {
-      interval = setInterval(() => {
-        setOtpTimer(prev => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [otpTimer]);
+useEffect(() => {
+  if (otpTimer <= 0) return;
+
+  const id: ReturnType<typeof setInterval> = setInterval(() => {
+    setOtpTimer(prev => Math.max(0, prev - 1)); // never go negative
+  }, 1000);
+
+  return () => clearInterval(id);
+}, [otpTimer]);
 
   // Phone number validation
   const validatePhoneNumber = (phone: string): boolean => {
