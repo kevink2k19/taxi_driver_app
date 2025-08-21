@@ -252,6 +252,10 @@ export default function NavigationScreen() {
     setShowDemandModal(false);
   };
 
+  const handleClearDemand = () => {
+    setDemandValue(0);
+  };
+
   const handlePriceAdd = (value: number) => {
     // Add to cumulative total
     setCumulativeTotal(prev => prev + value);
@@ -840,8 +844,11 @@ export default function NavigationScreen() {
               <Text style={styles.counterLabel}>MMK</Text>
             </View>
 
-          
-
+            <View style={styles.counterItem}>
+              <Clock size={20} color="#F59E0B" />
+              <Text style={styles.counterValue}>{eta}</Text>
+              <Text style={styles.counterLabel}>ETA</Text>
+            </View>
 
             <View style={styles.counterItem}>
               <Zap size={20} color="#8B5CF6" />
@@ -1382,12 +1389,21 @@ const styles = StyleSheet.create({
   priceGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    shadowColor: '#000',
+    gap: 12,
+  },
+  priceOption: {
     flex: 1,
+    minWidth: '45%',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     backgroundColor: 'white',
     elevation: 2,
-    borderRadius: 12,
+  },
   priceIndicator: {
     width: 32,
     height: 32,
@@ -1550,10 +1566,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#10B981',
-  },
-});
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 2,
   },
 });
