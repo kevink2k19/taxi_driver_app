@@ -189,47 +189,6 @@ export default function DemandModal({
                   <X size={24} color="#6B7280" />
                 </TouchableOpacity>
               </View>
-
-              {/* Current Fare Breakdown */}
-              <View style={styles.fareBreakdown}>
-                <View style={styles.breakdownHeader}>
-                  <Calculator size={20} color="#6B7280" />
-                  <Text style={styles.breakdownTitle}>Current Fare Breakdown</Text>
-                </View>
-                
-                <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Base Fare:</Text>
-                  <Text style={styles.breakdownValue}>{baseFare.toLocaleString()} MMK</Text>
-                </View>
-                
-                <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>
-                    Distance ({currentDistance.toFixed(1)} km × {fareRate} MMK):
-                  </Text>
-                  <Text style={styles.breakdownValue}>
-                    {Math.round(currentDistance * fareRate).toLocaleString()} MMK
-                  </Text>
-                </View>
-                
-                {currentDemand > 0 && (
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Current Demand:</Text>
-                    <Text style={[styles.breakdownValue, styles.demandBreakdownValue]}>
-                      +{currentDemand.toLocaleString()} MMK
-                    </Text>
-                  </View>
-                )}
-                
-                <View style={styles.breakdownDivider} />
-                
-                <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownTotalLabel}>Current Total:</Text>
-                  <Text style={styles.breakdownTotalValue}>
-                    {calculateTotal(currentDemand).toLocaleString()} MMK
-                  </Text>
-                </View>
-              </View>
-
               {/* Demand Options */}
               <View style={styles.optionsContainer}>
                 <Text style={styles.optionsTitle}>Available Demand Options</Text>
