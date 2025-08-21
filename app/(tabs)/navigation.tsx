@@ -32,6 +32,7 @@ import {
 import { Linking } from 'react-native';
 import DropoffDialog from '@/components/DropoffDialog';
 import GroupMessageSender from '@/components/GroupMessageSender';
+import DemandModal from '@/components/DemandModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -59,6 +60,7 @@ interface LocationCoords {
   longitude: number;
 }
 
+const BASE_FARE = 2000; // Base fare in MMK
 const FARE_RATE = 600; // MMK per km
 const INITIAL_DISTANCE = 0.1; // Starting distance in km
 
@@ -185,11 +187,14 @@ export default function NavigationScreen() {
   const [mapReady, setMapReady] = useState(false);
 
   const [distance, setDistance] = useState(INITIAL_DISTANCE);
-  const [fare, setFare] = useState(INITIAL_DISTANCE * FARE_RATE);
+  const [fare, setFare] = useState(BASE_FARE + (INITIAL_DISTANCE * FARE_RATE));
   const [speed, setSpeed] = useState(0);
   const [eta, setEta] = useState('--:--');
   const [showDropoffDialog, setShowDropoffDialog] = useState(false);
   const [showGroupSender, setShowGroupSender] = useState(false);
+  const [showDemandModal, setShowDemandModal] = useState(false);
+  const [demandValue, setDemandValue] = useState(0);
+  const [totalFare, setTotalFare] = useState(BASE_FARE);
 
   // Animation values
   const distanceAnim = useRef(new Animated.Value(INITIAL_DISTANCE)).current;
@@ -201,6 +206,14 @@ export default function NavigationScreen() {
   // Timers
   const tripTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationWatcher = useRef<Location.LocationSubscription | null>(null);
+
+  useEffect(() => {
+    // Calculate total fare including demand
+    const distanceFare = distance * FARE_RATE;
+    const calculatedTotal = BASE_FARE + distanceFare + demandValue;
+    setTotalFare(calculatedTotal);
+    setFare(calculatedTotal);
+  }, [distance, demandValue]);
 
   useEffect(() => {
     // Initialize with default location and cancel button state
@@ -293,6 +306,11 @@ export default function NavigationScreen() {
     ]).start();
   };
 
+  const handleDemandSelect = (selectedDemand: number) => {
+    setDemandValue(selectedDemand);
+    setShowDemandModal(false);
+  };
+
 
   const startTrip = () => {
     setTripState({
@@ -328,7 +346,7 @@ export default function NavigationScreen() {
         // Simulate distance increment (0.05-0.15 km per update)
         const increment = Math.random() * 0.1 + 0.05;
         currentDistance += increment;
-        const newFare = currentDistance * FARE_RATE;
+        const newFare = BASE_FARE + (currentDistance * FARE_RATE) + demandValue;
 
         setDistance(currentDistance);
         setFare(newFare);
@@ -396,10 +414,12 @@ export default function NavigationScreen() {
       totalRestTime: 0,
     });
     setDistance(INITIAL_DISTANCE);
-    setFare(INITIAL_DISTANCE * FARE_RATE);
+    const resetFare = BASE_FARE + (INITIAL_DISTANCE * FARE_RATE) + demandValue;
+    setFare(resetFare);
     distanceAnim.setValue(INITIAL_DISTANCE);
-    fareAnim.setValue(INITIAL_DISTANCE * FARE_RATE);
+    fareAnim.setValue(resetFare);
     setEta('--:--');
+    setDemandValue(0);
   };
 
   const handleCancelActiveOrder = () => {
@@ -425,10 +445,12 @@ export default function NavigationScreen() {
             
             // Reset counters
             setDistance(INITIAL_DISTANCE);
-            setFare(INITIAL_DISTANCE * FARE_RATE);
+            const resetFare = BASE_FARE + (INITIAL_DISTANCE * FARE_RATE);
+            setFare(resetFare);
             distanceAnim.setValue(INITIAL_DISTANCE);
-            fareAnim.setValue(INITIAL_DISTANCE * FARE_RATE);
+            fareAnim.setValue(resetFare);
             setEta('--:--');
+            setDemandValue(0);
             
             // Clear all order data by navigating to navigation without params
             router.replace('/(tabs)/navigation');
@@ -678,12 +700,24 @@ export default function NavigationScreen() {
               <DollarSign size={20} color="#10B981" />
               <Animated.Text style={styles.counterValue}>
                 {fareAnim.interpolate({
-                  inputRange: [0, 60000],
-                  outputRange: ['0', '60000'],
+                  inputRange: [0, 100000],
+                  outputRange: ['0', '100000'],
                   extrapolate: 'clamp',
                 })}
               </Animated.Text>
               <Text style={styles.counterLabel}>MMK</Text>
+            </View>
+
+            <View style={styles.counterItem}>
+              <TouchableOpacity 
+                style={styles.demandButton}
+                onPress={() => setShowDemandModal(true)}
+              >
+                <Text style={styles.demandButtonText}>Demand</Text>
+                {demandValue > 0 && (
+                  <Text style={styles.demandValue}>+{demandValue}</Text>
+                )}
+              </TouchableOpacity>
             </View>
 
             <View style={styles.counterItem}>
@@ -798,6 +832,17 @@ export default function NavigationScreen() {
           orderId: orderData.orderId,
         }}
         onSendComplete={handleGroupSendComplete}
+      />
+
+      {/* Demand Modal */}
+      <DemandModal
+        visible={showDemandModal}
+        onClose={() => setShowDemandModal(false)}
+        onSelect={handleDemandSelect}
+        currentDemand={demandValue}
+        baseFare={BASE_FARE}
+        currentDistance={distance}
+        fareRate={FARE_RATE}
       />
     </SafeAreaView>
   );
@@ -1152,5 +1197,30 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  demandButton: {
+    backgroundColor: '#8B5CF6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  demandButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  demandValue: {
+    color: '#FEF3C7',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });
