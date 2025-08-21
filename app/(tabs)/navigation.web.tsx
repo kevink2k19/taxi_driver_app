@@ -9,6 +9,7 @@ import {
   Alert,
   BackHandler,
   ScrollView,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +26,11 @@ import {
   ArrowLeft,
   Star,
   X,
+  Plus,
+  RotateCcw,
+  TrendingUp,
+  Calculator,
+  Settings,
 } from 'lucide-react-native';
 import { Linking } from 'react-native';
 import DropoffDialog from '@/components/DropoffDialog';
@@ -54,6 +60,22 @@ interface TripState {
 const BASE_FARE = 2000; // Base fare in MMK
 const FARE_RATE = 600; // MMK per km
 const INITIAL_DISTANCE = 0.1; // Starting distance in km
+
+// Navigation tabs configuration
+const NAVIGATION_TABS = [
+  { id: 'pricing', label: 'Pricing', icon: DollarSign },
+  { id: 'demand', label: 'Demand', icon: TrendingUp },
+  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'calculator', label: 'Calculator', icon: Calculator },
+];
+
+// Price options for cumulative selection
+const PRICE_OPTIONS = [
+  { value: 500, label: '500', color: '#10B981', description: 'Low increment' },
+  { value: 1000, label: '1000', color: '#F59E0B', description: 'Medium increment' },
+  { value: 2000, label: '2000', color: '#EF4444', description: 'High increment' },
+  { value: 5000, label: '5000', color: '#8B5CF6', description: 'Premium increment' },
+];
 
 export default function NavigationScreen() {
   const insets = useSafeAreaInsets();
@@ -158,12 +180,17 @@ export default function NavigationScreen() {
   const [showDemandModal, setShowDemandModal] = useState(false);
   const [demandValue, setDemandValue] = useState(0);
   const [totalFare, setTotalFare] = useState(BASE_FARE);
+  const [activeTab, setActiveTab] = useState('pricing');
+  const [cumulativeTotal, setCumulativeTotal] = useState(0);
+  const [recentAdditions, setRecentAdditions] = useState<number[]>([]);
 
   // Animation values
   const distanceAnim = useRef(new Animated.Value(INITIAL_DISTANCE)).current;
   const fareAnim = useRef(new Animated.Value(INITIAL_DISTANCE * FARE_RATE)).current;
   const buttonScaleAnim = useRef(new Animated.Value(1)).current;
   const buttonsOpacityAnim = useRef(new Animated.Value(0)).current;
+  const priceAddAnim = useRef(new Animated.Value(0)).current;
+  const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
 
   // Timers
   const tripTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -171,10 +198,10 @@ export default function NavigationScreen() {
   useEffect(() => {
     // Calculate total fare including demand
     const distanceFare = distance * FARE_RATE;
-    const calculatedTotal = BASE_FARE + distanceFare + demandValue;
+    const calculatedTotal = BASE_FARE + distanceFare + demandValue + cumulativeTotal;
     setTotalFare(calculatedTotal);
     setFare(calculatedTotal);
-  }, [distance, demandValue]);
+  }, [distance, demandValue, cumulativeTotal]);
 
   useEffect(() => {
     // Initialize immediately without loading delays

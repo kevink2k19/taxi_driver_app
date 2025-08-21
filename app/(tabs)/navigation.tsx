@@ -9,6 +9,7 @@ import {
   Alert,
   BackHandler,
   ScrollView,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +26,11 @@ import {
   ArrowLeft,
   Star,
   X,
+  Plus,
+  RotateCcw,
+  TrendingUp,
+  Calculator,
+  Settings,
 } from 'lucide-react-native';
 import { Linking } from 'react-native';
 import DropoffDialog from '@/components/DropoffDialog';
@@ -54,6 +60,22 @@ interface TripState {
 const BASE_FARE = 2000; // Base fare in MMK
 const FARE_RATE = 600; // MMK per km
 const INITIAL_DISTANCE = 0.1; // Starting distance in km
+
+// Navigation tabs configuration
+const NAVIGATION_TABS = [
+  { id: 'pricing', label: 'Pricing', icon: DollarSign },
+  { id: 'demand', label: 'Demand', icon: TrendingUp },
+  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'calculator', label: 'Calculator', icon: Calculator },
+];
+
+// Price options for cumulative selection
+const PRICE_OPTIONS = [
+  { value: 500, label: '500', color: '#10B981', description: 'Low increment' },
+  { value: 1000, label: '1000', color: '#F59E0B', description: 'Medium increment' },
+  { value: 2000, label: '2000', color: '#EF4444', description: 'High increment' },
+  { value: 5000, label: '5000', color: '#8B5CF6', description: 'Premium increment' },
+];
 
 export default function NavigationScreen() {
   const insets = useSafeAreaInsets();
@@ -158,12 +180,17 @@ export default function NavigationScreen() {
   const [showDemandModal, setShowDemandModal] = useState(false);
   const [demandValue, setDemandValue] = useState(0);
   const [totalFare, setTotalFare] = useState(BASE_FARE);
+  const [activeTab, setActiveTab] = useState('pricing');
+  const [cumulativeTotal, setCumulativeTotal] = useState(0);
+  const [recentAdditions, setRecentAdditions] = useState<number[]>([]);
 
   // Animation values
   const distanceAnim = useRef(new Animated.Value(INITIAL_DISTANCE)).current;
   const fareAnim = useRef(new Animated.Value(INITIAL_DISTANCE * FARE_RATE)).current;
   const buttonScaleAnim = useRef(new Animated.Value(1)).current;
   const buttonsOpacityAnim = useRef(new Animated.Value(0)).current;
+  const priceAddAnim = useRef(new Animated.Value(0)).current;
+  const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
 
   // Timers
   const tripTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -171,10 +198,10 @@ export default function NavigationScreen() {
   useEffect(() => {
     // Calculate total fare including demand
     const distanceFare = distance * FARE_RATE;
-    const calculatedTotal = BASE_FARE + distanceFare + demandValue;
+    const calculatedTotal = BASE_FARE + distanceFare + demandValue + cumulativeTotal;
     setTotalFare(calculatedTotal);
     setFare(calculatedTotal);
-  }, [distance, demandValue]);
+  }, [distance, demandValue, cumulativeTotal]);
 
   useEffect(() => {
     // Initialize immediately without loading delays
@@ -225,6 +252,66 @@ export default function NavigationScreen() {
     setShowDemandModal(false);
   };
 
+  const handlePriceAdd = (value: number) => {
+    // Add to cumulative total
+    setCumulativeTotal(prev => prev + value);
+    
+    // Track recent additions for undo functionality
+    setRecentAdditions(prev => [...prev.slice(-4), value]);
+    
+    // Animate the addition
+    Animated.sequence([
+      Animated.timing(priceAddAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(priceAddAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handleClearCumulative = () => {
+    Alert.alert(
+      'Clear Total',
+      `Are you sure you want to clear the cumulative total of ${cumulativeTotal.toLocaleString()} MMK?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            setCumulativeTotal(0);
+            setRecentAdditions([]);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUndoLast = () => {
+    if (recentAdditions.length > 0) {
+      const lastAddition = recentAdditions[recentAdditions.length - 1];
+      setCumulativeTotal(prev => Math.max(0, prev - lastAddition));
+      setRecentAdditions(prev => prev.slice(0, -1));
+    }
+  };
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    
+    // Animate tab indicator
+    const tabIndex = NAVIGATION_TABS.findIndex(tab => tab.id === tabId);
+    Animated.spring(tabIndicatorAnim, {
+      toValue: tabIndex,
+      tension: 100,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
   const startTrip = () => {
     setTripState({
       status: 'active',
@@ -323,6 +410,206 @@ export default function NavigationScreen() {
     setDemandValue(0);
   };
 
+  const renderNavigationTabs = () => (
+    <View style={styles.navigationTabs}>
+      <View style={styles.tabsContainer}>
+        {NAVIGATION_TABS.map((tab, index) => {
+          const isActive = activeTab === tab.id;
+          const IconComponent = tab.icon;
+          
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              style={[
+                styles.tabButton,
+                isActive && styles.activeTabButton,
+              ]}
+              onPress={() => handleTabChange(tab.id)}
+            >
+              <IconComponent 
+                size={20} 
+                color={isActive ? '#3B82F6' : '#6B7280'} 
+              />
+              <Text style={[
+                styles.tabLabel,
+                isActive && styles.activeTabLabel,
+              ]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      
+      {/* Animated Tab Indicator */}
+      <Animated.View
+        style={[
+          styles.tabIndicator,
+          {
+            transform: [{
+              translateX: tabIndicatorAnim.interpolate({
+                inputRange: [0, NAVIGATION_TABS.length - 1],
+                outputRange: [0, (width - 40) / NAVIGATION_TABS.length * (NAVIGATION_TABS.length - 1)],
+              })
+            }]
+          }
+        ]}
+      />
+    </View>
+  );
+
+  const renderPriceOptions = () => (
+    <View style={styles.priceOptionsContainer}>
+      <Text style={styles.sectionTitle}>Add to Total</Text>
+      <View style={styles.priceGrid}>
+        {PRICE_OPTIONS.map((option) => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              styles.priceOption,
+              { borderColor: option.color }
+            ]}
+            onPress={() => handlePriceAdd(option.value)}
+          >
+            <View style={[styles.priceIndicator, { backgroundColor: option.color }]}>
+              <Plus size={16} color="white" />
+            </View>
+            <Text style={styles.priceValue}>{option.value.toLocaleString()}</Text>
+            <Text style={styles.priceLabel}>MMK</Text>
+            <Text style={styles.priceDescription}>{option.description}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  const renderCumulativeDisplay = () => (
+    <Animated.View style={[
+      styles.cumulativeDisplay,
+      {
+        transform: [{
+          scale: priceAddAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 1.05],
+          })
+        }]
+      }
+    ]}>
+      <View style={styles.cumulativeHeader}>
+        <Text style={styles.cumulativeLabel}>Cumulative Total</Text>
+        <View style={styles.cumulativeActions}>
+          {recentAdditions.length > 0 && (
+            <TouchableOpacity
+              style={styles.undoButton}
+              onPress={handleUndoLast}
+            >
+              <RotateCcw size={16} color="#6B7280" />
+              <Text style={styles.undoText}>Undo</Text>
+            </TouchableOpacity>
+          )}
+          {cumulativeTotal > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={handleClearCumulative}
+            >
+              <X size={16} color="#EF4444" />
+              <Text style={styles.clearText}>Clear</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+      
+      <Text style={styles.cumulativeAmount}>
+        +{cumulativeTotal.toLocaleString()} MMK
+      </Text>
+      
+      {recentAdditions.length > 0 && (
+        <View style={styles.recentAdditions}>
+          <Text style={styles.recentLabel}>Recent: </Text>
+          {recentAdditions.slice(-3).map((addition, index) => (
+            <Text key={index} style={styles.recentItem}>
+              +{addition.toLocaleString()}
+            </Text>
+          ))}
+        </View>
+      )}
+    </Animated.View>
+  );
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'pricing':
+        return (
+          <View style={styles.tabContent}>
+            {renderPriceOptions()}
+            {renderCumulativeDisplay()}
+          </View>
+        );
+      
+      case 'demand':
+        return (
+          <View style={styles.tabContent}>
+            <Text style={styles.sectionTitle}>Demand Pricing</Text>
+            <TouchableOpacity 
+              style={styles.demandButton}
+              onPress={() => setShowDemandModal(true)}
+            >
+              <TrendingUp size={20} color="white" />
+              <Text style={styles.demandButtonText}>
+                {demandValue > 0 ? `+${demandValue} MMK` : 'Set Demand'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      
+      case 'settings':
+        return (
+          <View style={styles.tabContent}>
+            <Text style={styles.sectionTitle}>Trip Settings</Text>
+            <View style={styles.settingItem}>
+              <Text style={styles.settingLabel}>Base Fare</Text>
+              <Text style={styles.settingValue}>{BASE_FARE.toLocaleString()} MMK</Text>
+            </View>
+            <View style={styles.settingItem}>
+              <Text style={styles.settingLabel}>Rate per KM</Text>
+              <Text style={styles.settingValue}>{FARE_RATE.toLocaleString()} MMK</Text>
+            </View>
+          </View>
+        );
+      
+      case 'calculator':
+        return (
+          <View style={styles.tabContent}>
+            <Text style={styles.sectionTitle}>Fare Calculator</Text>
+            <View style={styles.calculatorDisplay}>
+              <View style={styles.calculatorRow}>
+                <Text style={styles.calculatorLabel}>Base Fare:</Text>
+                <Text style={styles.calculatorValue}>{BASE_FARE.toLocaleString()} MMK</Text>
+              </View>
+              <View style={styles.calculatorRow}>
+                <Text style={styles.calculatorLabel}>Distance ({distance.toFixed(1)} km):</Text>
+                <Text style={styles.calculatorValue}>{(distance * FARE_RATE).toLocaleString()} MMK</Text>
+              </View>
+              <View style={styles.calculatorRow}>
+                <Text style={styles.calculatorLabel}>Demand:</Text>
+                <Text style={styles.calculatorValue}>{demandValue.toLocaleString()} MMK</Text>
+              </View>
+              <View style={styles.calculatorRow}>
+                <Text style={styles.calculatorLabel}>Cumulative:</Text>
+                <Text style={styles.calculatorValue}>{cumulativeTotal.toLocaleString()} MMK</Text>
+              </View>
+              <View style={[styles.calculatorRow, styles.calculatorTotal]}>
+                <Text style={styles.calculatorTotalLabel}>Total:</Text>
+                <Text style={styles.calculatorTotalValue}>{totalFare.toLocaleString()} MMK</Text>
+              </View>
+            </View>
+          </View>
+        );
+      
+      default:
+        return null;
+    }
+  };
   const handleCancelOrder = () => {
     Alert.alert(
       'Cancel Order',
@@ -530,6 +817,12 @@ export default function NavigationScreen() {
             opacity: buttonsOpacityAnim 
           }
         ]}>
+          {/* Navigation Tabs */}
+          {renderNavigationTabs()}
+          
+          {/* Tab Content */}
+          {renderTabContent()}
+
           <View style={styles.countersContainer}>
             <View style={styles.counterItem}>
               <NavigationIcon size={20} color="#6B7280" />
@@ -556,16 +849,11 @@ export default function NavigationScreen() {
               <Text style={styles.counterLabel}>km/h</Text>
             </View>
 
-              <View style={styles.counterItem}>
-              <TouchableOpacity 
-                style={styles.demandButton}
-                onPress={() => setShowDemandModal(true)}
-              >
-                <Text style={styles.demandButtonText}>Demand</Text>
-                {demandValue > 0 && (
-                  <Text style={styles.demandValue}>+{demandValue}</Text>
-                )}
-              </TouchableOpacity>
+            <View style={styles.counterItem}>
+              <Text style={styles.counterValue}>
+                {cumulativeTotal > 0 ? `+${cumulativeTotal}` : '0'}
+              </Text>
+              <Text style={styles.counterLabel}>Extra</Text>
             </View>
           </View>
 
@@ -1034,27 +1322,236 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  demandButton: {
-    backgroundColor: '#8B5CF6',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+  navigationTabs: {
+    marginBottom: 20,
+    position: 'relative',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 4,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 80,
-    shadowColor: '#8B5CF6',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  activeTabButton: {
+    backgroundColor: 'white',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+  },
+  tabLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  activeTabLabel: {
+    color: '#3B82F6',
+    fontWeight: '600',
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    backgroundColor: '#3B82F6',
+    borderRadius: 2,
+    width: `${100 / NAVIGATION_TABS.length}%`,
+  },
+  tabContent: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 16,
+  },
+  priceOptionsContainer: {
+    marginBottom: 20,
+  },
+  priceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    shadowColor: '#000',
+    flex: 1,
+    shadowOpacity: 0.1,
+    backgroundColor: 'white',
+    elevation: 2,
+    borderRadius: 12,
+  priceIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  priceValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  priceLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  priceDescription: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  cumulativeDisplay: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  cumulativeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cumulativeLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  cumulativeActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  undoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6',
+    gap: 4,
+  },
+  undoText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  clearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#FEE2E2',
+    gap: 4,
+  },
+  clearText: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '500',
+  },
+  cumulativeAmount: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#10B981',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  recentAdditions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  recentLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  recentItem: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '500',
+  },
+  demandButton: {
+    backgroundColor: '#8B5CF6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
   },
   demandButtonText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
   },
-  demandValue: {
-    color: '#FEF3C7',
+  settingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  settingLabel: {
+    fontSize: 16,
+    color: '#374151',
+  },
+  settingValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  calculatorDisplay: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 16,
+  },
+  calculatorRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  calculatorLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  calculatorValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  calculatorTotal: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    marginTop: 8,
+    paddingTop: 12,
+  },
+  calculatorTotalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  calculatorTotalValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#10B981',
+  },
+});
     fontSize: 12,
     fontWeight: '700',
     marginTop: 2,
