@@ -11,27 +11,23 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Navigation as NavigationIcon,
   Play,
   Pause,
   Square,
-  MapPin,
   Clock,
   DollarSign,
   Zap,
+  MapPin,
   Phone,
   ArrowLeft,
   Star,
-  Users,
   X,
 } from 'lucide-react-native';
 import { Linking } from 'react-native';
 import DropoffDialog from '@/components/DropoffDialog';
-import GroupMessageSender from '@/components/GroupMessageSender';
 import DemandModal from '@/components/DemandModal';
 
 const { width, height } = Dimensions.get('window');
@@ -53,11 +49,6 @@ interface TripState {
   startTime: number | null;
   restStartTime: number | null;
   totalRestTime: number;
-}
-
-interface LocationCoords {
-  latitude: number;
-  longitude: number;
 }
 
 const BASE_FARE = 2000; // Base fare in MMK
@@ -158,40 +149,12 @@ export default function NavigationScreen() {
     totalRestTime: 0,
   });
 
-  // Handle hardware back button on Android
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (tripState.status === 'active' || tripState.status === 'resting') {
-        Alert.alert(
-          'Trip in Progress',
-          'You have an active trip. Are you sure you want to go back?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Yes', onPress: () => router.back() },
-          ]
-        );
-        return true;
-      }
-      return false;
-    });
-
-    return () => backHandler.remove();
-  }, [tripState.status, router]);
-
-  const [currentLocation, setCurrentLocation] = useState<LocationCoords | null>(null);
-  const [destination, setDestination] = useState<LocationCoords>({
-    latitude: 16.8661, // Yangon International Airport
-    longitude: 96.1951,
-  });
-  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
-
   const [distance, setDistance] = useState(INITIAL_DISTANCE);
   const [fare, setFare] = useState(BASE_FARE + (INITIAL_DISTANCE * FARE_RATE));
   const [speed, setSpeed] = useState(0);
   const [eta, setEta] = useState('--:--');
   const [showDropoffDialog, setShowDropoffDialog] = useState(false);
-  const [showGroupSender, setShowGroupSender] = useState(false);
+  const [showCancelButton, setShowCancelButton] = useState(false);
   const [showDemandModal, setShowDemandModal] = useState(false);
   const [demandValue, setDemandValue] = useState(0);
   const [totalFare, setTotalFare] = useState(BASE_FARE);
@@ -200,12 +163,10 @@ export default function NavigationScreen() {
   const distanceAnim = useRef(new Animated.Value(INITIAL_DISTANCE)).current;
   const fareAnim = useRef(new Animated.Value(INITIAL_DISTANCE * FARE_RATE)).current;
   const buttonScaleAnim = useRef(new Animated.Value(1)).current;
-  const mapOpacityAnim = useRef(new Animated.Value(0)).current;
   const buttonsOpacityAnim = useRef(new Animated.Value(0)).current;
 
   // Timers
   const tripTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const locationWatcher = useRef<Location.LocationSubscription | null>(null);
 
   useEffect(() => {
     // Calculate total fare including demand
@@ -216,17 +177,10 @@ export default function NavigationScreen() {
   }, [distance, demandValue]);
 
   useEffect(() => {
-    // Initialize with default location and cancel button state
-    const defaultLocation = {
-      latitude: 16.8409, // Yangon city center
-      longitude: 96.1735,
-    };
-    setCurrentLocation(defaultLocation);
+    // Initialize immediately without loading delays
+    setShowCancelButton(!!hasCompleteOrderData);
     
-    // Request location permission in background
-    requestLocationPermissionAsync();
-    
-    // Animate buttons in after component mount
+    // Animate buttons in smoothly
     setTimeout(() => {
       Animated.timing(buttonsOpacityAnim, {
         toValue: 1,
@@ -237,48 +191,8 @@ export default function NavigationScreen() {
     
     return () => {
       if (tripTimer.current) clearInterval(tripTimer.current);
-      if (locationWatcher.current) locationWatcher.current.remove();
     };
   }, []);
-
-  const requestLocationPermissionAsync = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setLocationPermissionGranted(false);
-        // Show a non-blocking notification instead of blocking alert
-        console.log('Location permission not granted, using default location');
-        return;
-      }
-
-      setLocationPermissionGranted(true);
-      const location = await Location.getCurrentPositionAsync({});
-      setCurrentLocation({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-
-      // Start watching location changes
-      locationWatcher.current = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 2000,
-          distanceInterval: 10,
-        },
-        (location) => {
-          setCurrentLocation({
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-          });
-          setSpeed(location.coords.speed || 0);
-        }
-      );
-    } catch (error) {
-      console.log('Location error:', error);
-      setLocationPermissionGranted(false);
-      // Continue with default location
-    }
-  };
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, index) => (
@@ -310,7 +224,6 @@ export default function NavigationScreen() {
     setDemandValue(selectedDemand);
     setShowDemandModal(false);
   };
-
 
   const startTrip = () => {
     setTripState({
@@ -352,9 +265,9 @@ export default function NavigationScreen() {
         setFare(newFare);
         animateCounters(currentDistance, newFare);
 
-        // Calculate ETA (assuming average speed of 30 km/h)
-        const remainingDistance = calculateDistance(currentLocation!, destination);
-        const estimatedMinutes = (remainingDistance / 30) * 60;
+        // Simulate speed and ETA
+        setSpeed(Math.random() * 20 + 30); // 30-50 km/h
+        const estimatedMinutes = Math.random() * 30 + 10;
         const etaTime = new Date(Date.now() + estimatedMinutes * 60000);
         setEta(etaTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       }
@@ -381,18 +294,6 @@ export default function NavigationScreen() {
 
   const dropOff = () => {
     setShowDropoffDialog(true);
-  };
-
-  const handleSendToGroups = () => {
-    setShowGroupSender(true);
-  };
-
-  const handleGroupSendComplete = (sentGroups: any[]) => {
-    Alert.alert(
-      'Order Shared',
-      `Order successfully shared with ${sentGroups.length} group${sentGroups.length > 1 ? 's' : ''}.`,
-      [{ text: 'OK' }]
-    );
   };
 
   const handleDropoffConfirm = () => {
@@ -422,14 +323,14 @@ export default function NavigationScreen() {
     setDemandValue(0);
   };
 
-  const handleCancelActiveOrder = () => {
+  const handleCancelOrder = () => {
     Alert.alert(
-      'Cancel Active Order',
-      'Are you sure you want to cancel this active order? This will clear all order data and return you to the orders list.',
+      'Cancel Order',
+      'Are you sure you want to cancel this order? All order data will be cleared.',
       [
         { text: 'No', style: 'cancel' },
         {
-          text: 'Yes, Cancel Order',
+          text: 'Yes, Cancel',
           style: 'destructive',
           onPress: () => {
             // Clear all timers
@@ -452,50 +353,16 @@ export default function NavigationScreen() {
             setEta('--:--');
             setDemandValue(0);
             
-            // Clear all order data by navigating to navigation without params
-            router.replace('/(tabs)/navigation');
+            // Hide cancel button
+            setShowCancelButton(false);
+            
+            // Navigate back to orders tab to clear order data
+            router.replace('/(tabs)/');
           },
         },
       ]
     );
   };
-  const calculateDistance = (point1: LocationCoords, point2: LocationCoords): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = (point2.latitude - point1.latitude) * Math.PI / 180;
-    const dLon = (point2.longitude - point1.longitude) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(point1.latitude * Math.PI / 180) * Math.cos(point2.latitude * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  const handleMapReady = () => {
-    setMapReady(true);
-    Animated.timing(mapOpacityAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const getRouteCoordinates = (): LocationCoords[] => {
-    if (!currentLocation) return [];
-    
-    // Simple route simulation (in real app, use Google Directions API)
-    return [
-      currentLocation,
-      {
-        latitude: (currentLocation.latitude + destination.latitude) / 2,
-        longitude: (currentLocation.longitude + destination.longitude) / 2,
-      },
-      destination,
-    ];
-  }
-
-
-
   const tripDetails = {
     distance,
     duration: tripState.startTime 
@@ -509,6 +376,9 @@ export default function NavigationScreen() {
     endTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     pickupLocation: hasCompleteOrderData ? orderData.pickupLocation : 'Current Location',
     dropoffLocation: hasCompleteOrderData ? orderData.destination : 'Destination',
+    customerName: hasCompleteOrderData ? orderData.customerName : undefined,
+    customerPhone: hasCompleteOrderData ? orderData.customerPhone : undefined,
+    orderId: hasCompleteOrderData ? orderData.orderId : undefined,
   };
 
   return (
@@ -607,55 +477,32 @@ export default function NavigationScreen() {
         {/* No Order State - Show when no order data is available */}
         {!hasCompleteOrderData && (
           <View style={styles.noOrderCard}>
-          
-            <Text style={styles.noOrderTitle}>White Heart Kilo Taxi</Text>
+            <View style={styles.noOrderIcon}>
+              <NavigationIcon size={48} color="#6B7280" />
+            </View>
+            <Text style={styles.noOrderTitle}>No Active Order</Text>
+            <Text style={styles.noOrderText}>
+              Accept an order from the Orders tab to start navigation
+            </Text>
+            <TouchableOpacity 
+              style={styles.goToOrdersButton}
+              onPress={() => router.push('/(tabs)/')}
+            >
+              <Text style={styles.goToOrdersButtonText}>Go to Orders</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Map Container */}
-        <Animated.View style={[styles.mapContainer, { opacity: mapOpacityAnim }]}>
-          {currentLocation && (
-            <MapView
-              style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              initialRegion={{
-                latitude: currentLocation.latitude,
-                longitude: currentLocation.longitude,
-                latitudeDelta: 0.0922,
-                longitudeDelta: 0.0421,
-              }}
-              showsUserLocation={locationPermissionGranted}
-              showsMyLocationButton={false}
-              showsTraffic={true}
-              onMapReady={handleMapReady}
-              loadingEnabled={true}
-              loadingIndicatorColor="#3B82F6"
-              loadingBackgroundColor="#F9FAFB"
-            >
-              {/* Current Location Marker */}
-              <Marker
-                coordinate={currentLocation}
-                title="Current Location"
-                pinColor="#3B82F6"
-              />
-              
-              {/* Destination Marker */}
-              <Marker
-                coordinate={destination}
-                title="Destination"
-                pinColor="#EF4444"
-              />
-
-              {/* Route Polyline */}
-              {tripState.status !== 'idle' && (
-                <Polyline
-                  coordinates={getRouteCoordinates()}
-                  strokeColor="#3B82F6"
-                  strokeWidth={4}
-                />
-              )}
-            </MapView>
-          )}
+        {/* Map Placeholder for Web */}
+        <View style={styles.mapContainer}>
+          <View style={styles.mapPlaceholder}>
+            <MapPin size={48} color="#6B7280" />
+            <Text style={styles.placeholderTitle}>Navigation Map</Text>
+            <Text style={styles.placeholderText}>
+              Interactive maps are not available on web platform.
+              {'\n'}Use the mobile app for full navigation features.
+            </Text>
+          </View>
 
           {/* Trip Status Overlay */}
           <View style={styles.statusOverlay}>
@@ -673,7 +520,7 @@ export default function NavigationScreen() {
               </Text>
             </View>
           </View>
-        </Animated.View>
+        </View>
 
         {/* Trip Information Panel */}
         <Animated.View style={[
@@ -687,11 +534,7 @@ export default function NavigationScreen() {
             <View style={styles.counterItem}>
               <NavigationIcon size={20} color="#6B7280" />
               <Animated.Text style={styles.counterValue}>
-                {distanceAnim.interpolate({
-                  inputRange: [0, 100],
-                  outputRange: ['0.0', '100.0'],
-                  extrapolate: 'clamp',
-                })}
+                {distance.toFixed(1)}
               </Animated.Text>
               <Text style={styles.counterLabel}>km</Text>
             </View>
@@ -699,16 +542,21 @@ export default function NavigationScreen() {
             <View style={styles.counterItem}>
               <DollarSign size={20} color="#10B981" />
               <Animated.Text style={styles.counterValue}>
-                {fareAnim.interpolate({
-                  inputRange: [0, 100000],
-                  outputRange: ['0', '100000'],
-                  extrapolate: 'clamp',
-                })}
+                {fare.toFixed(0)}
               </Animated.Text>
               <Text style={styles.counterLabel}>MMK</Text>
             </View>
 
+          
+
+
             <View style={styles.counterItem}>
+              <Zap size={20} color="#8B5CF6" />
+              <Text style={styles.counterValue}>{Math.round(speed)}</Text>
+              <Text style={styles.counterLabel}>km/h</Text>
+            </View>
+
+              <View style={styles.counterItem}>
               <TouchableOpacity 
                 style={styles.demandButton}
                 onPress={() => setShowDemandModal(true)}
@@ -718,18 +566,6 @@ export default function NavigationScreen() {
                   <Text style={styles.demandValue}>+{demandValue}</Text>
                 )}
               </TouchableOpacity>
-            </View>
-
-            <View style={styles.counterItem}>
-              <Clock size={20} color="#F59E0B" />
-              <Text style={styles.counterValue}>{eta}</Text>
-              <Text style={styles.counterLabel}>ETA</Text>
-            </View>
-
-            <View style={styles.counterItem}>
-              <Zap size={20} color="#8B5CF6" />
-              <Text style={styles.counterValue}>{Math.round(speed * 3.6)}</Text>
-              <Text style={styles.counterLabel}>km/h</Text>
             </View>
           </View>
 
@@ -744,11 +580,11 @@ export default function NavigationScreen() {
                   </TouchableOpacity>
                 </Animated.View>
                 
-                {/* Order Cancel Button - Show when there's an active order */}
-                {hasCompleteOrderData && (
-                  <TouchableOpacity style={styles.orderCancelButton} onPress={handleCancelActiveOrder}>
+                {/* Cancel Button - Only show when order data is present */}
+                {showCancelButton && (
+                  <TouchableOpacity style={styles.cancelButton} onPress={handleCancelOrder}>
                     <X size={20} color="#EF4444" />
-                    <Text style={styles.orderCancelButtonText}>Order Cancel</Text>
+                    <Text style={styles.cancelButtonText}>Cancel Order</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -794,11 +630,11 @@ export default function NavigationScreen() {
                   <Text style={styles.resetButtonText}>New Trip</Text>
                 </TouchableOpacity>
                 
-                {/* Order Cancel Button - Show after trip completion if order data exists */}
-                {hasCompleteOrderData && (
-                  <TouchableOpacity style={styles.orderCancelButton} onPress={handleCancelActiveOrder}>
+                {/* Cancel Button - Show after trip completion if order data exists */}
+                {showCancelButton && (
+                  <TouchableOpacity style={styles.cancelButton} onPress={handleCancelOrder}>
                     <X size={20} color="#EF4444" />
-                    <Text style={styles.orderCancelButtonText}>Order Cancel</Text>
+                    <Text style={styles.cancelButtonText}>Cancel Order</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -813,25 +649,6 @@ export default function NavigationScreen() {
         onClose={() => setShowDropoffDialog(false)}
         onConfirm={handleDropoffConfirm}
         tripDetails={tripDetails}
-      />
-
-      {/* Group Message Sender */}
-      <GroupMessageSender
-        visible={showGroupSender}
-        onClose={() => setShowGroupSender(false)}
-        orderData={{
-          customerName: orderData.customerName,
-          customerPhone: orderData.customerPhone,
-          pickupLocation: orderData.pickupLocation,
-          destination: orderData.destination,
-          fareAmount: orderData.fareAmount,
-          distance: orderData.distance,
-          estimatedDuration: orderData.estimatedDuration,
-          customerRating: orderData.customerRating,
-          specialInstructions: '',
-          orderId: orderData.orderId,
-        }}
-        onSendComplete={handleGroupSendComplete}
       />
 
       {/* Demand Modal */}
@@ -1027,11 +844,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mapContainer: {
-    height: height * 0.35,
+    height: height * 0.45,
     position: 'relative',
   },
-  map: {
+  mapPlaceholder: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    margin: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  placeholderTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#374151',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 32,
   },
   statusOverlay: {
     position: 'absolute',
@@ -1122,7 +961,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  orderCancelButton: {
+  cancelButton: {
     backgroundColor: 'white',
     flexDirection: 'row',
     alignItems: 'center',
@@ -1138,18 +977,17 @@ const styles = StyleSheet.create({
     elevation: 2,
     gap: 6,
   },
-  orderCancelButtonText: {
+  cancelButtonText: {
     color: '#EF4444',
     fontSize: 16,
     fontWeight: '600',
   },
   activeControls: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 12,
   },
   controlButton: {
-    minWidth: '45%',
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1169,9 +1007,6 @@ const styles = StyleSheet.create({
   },
   dropOffButton: {
     backgroundColor: '#EF4444',
-  },
-  sendToGroupButton: {
-    backgroundColor: '#8B5CF6',
   },
   controlButtonText: {
     color: 'white',
