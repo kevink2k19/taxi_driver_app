@@ -11,20 +11,7 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import {
-  X,
-  Users,
-  Circle,
-  Crown,
-  Shield,
-  User,
-  Phone,
-  MessageCircle,
-  MoreVertical,
-  UserPlus,
-  Search,
-  Filter,
-} from 'lucide-react-native';
+import { X, Users, Circle, Crown, Shield, User, Phone, MessageCircle, MoveVertical as MoreVertical, UserPlus, Search, Filter } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
