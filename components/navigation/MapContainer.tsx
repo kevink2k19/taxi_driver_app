@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Alert, Platform } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 
 interface MapContainerProps {
@@ -20,13 +19,14 @@ export default function MapContainer({
   showTraffic = true,
   followUser = true,
 }: MapContainerProps) {
-  const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState({
     latitude: 16.8661, // Yangon coordinates
     longitude: 96.1951,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   });
+
+  const [mapReady, setMapReady] = useState(false);
 
   const [mapReady, setMapReady] = useState(false);
 
@@ -39,10 +39,17 @@ export default function MapContainer({
         longitudeDelta: 0.01,
       };
       
-      if (followUser) {
         setRegion(newRegion);
         mapRef.current?.animateToRegion(newRegion, 1000);
       }
+  const handleMapReady = () => {
+    setMapReady(true);
+  };
+
+  const handleRegionChange = (newRegion: any) => {
+    setRegion(newRegion);
+  };
+
       
       onLocationChange?.(currentLocation);
     }
@@ -83,49 +90,23 @@ export default function MapContainer({
         showsBuildings={true}
         showsIndoors={true}
         loadingEnabled={true}
-        mapType="standard"
-        pitchEnabled={true}
-        rotateEnabled={true}
-        scrollEnabled={true}
-        zoomEnabled={true}
-      >
-        {/* Current Location Marker */}
-        {currentLocation && (
-          <Marker
-            coordinate={{
-              latitude: currentLocation.coords.latitude,
-              longitude: currentLocation.coords.longitude,
-            }}
-            title="Your Location"
-            description="Current driver position"
-            pinColor="#3B82F6"
-            anchor={{ x: 0.5, y: 0.5 }}
-          />
-        )}
-
-        {/* Destination Marker */}
-        {destination && (
-          <Marker
-            coordinate={destination}
-            title="Destination"
-            description="Drop-off location"
-            pinColor="#EF4444"
-            anchor={{ x: 0.5, y: 1 }}
-          />
-        )}
-
-        {/* Route Polyline */}
-        {route && route.length > 0 && (
-          <Polyline
-            coordinates={route}
-            strokeColor="#3B82F6"
-            strokeWidth={6}
-            strokePattern={[1]}
-            lineCap="round"
-            lineJoin="round"
-          />
-        )}
-      </MapView>
+      {Platform.OS === 'web' ? (
+        <View style={styles.webMapPlaceholder}>
+          <Text style={styles.webMapText}>Interactive maps are not available on web platform.</Text>
+          <Text style={styles.webMapSubtext}>Use the mobile app for full navigation features.</Text>
+        </View>
+      ) : (
+        <View style={styles.nativeMapContainer}>
+          <Text style={styles.mapStatusText}>
+            {currentLocation ? 'GPS Connected' : 'Connecting to GPS...'}
+          </Text>
+          {currentLocation && (
+            <Text style={styles.coordinatesText}>
+              {currentLocation.coords.latitude.toFixed(6)}, {currentLocation.coords.longitude.toFixed(6)}
+            </Text>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -134,7 +115,46 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  map: {
+  webMapPlaceholder: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    margin: 16,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  webMapText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  webMapSubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  nativeMapContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E5F3FF',
+    borderRadius: 12,
+    margin: 16,
+    padding: 20,
+  },
+  mapStatusText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  coordinatesText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontFamily: 'monospace',
   },
 });

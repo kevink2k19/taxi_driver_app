@@ -35,6 +35,11 @@ import {
 import { Linking } from 'react-native';
 import DropoffDialog from '@/components/DropoffDialog';
 import DemandModal from '@/components/DemandModal';
+import MapContainer from '@/components/navigation/MapContainer';
+import VoiceGuidance from '@/components/navigation/VoiceGuidance';
+import { LocationService } from '@/services/LocationService';
+import { NavigationService, RouteResult } from '@/services/NavigationService';
+import * as Location from 'expo-location';
 
 const { width, height } = Dimensions.get('window');
 
@@ -183,6 +188,10 @@ export default function NavigationScreen() {
   const [activeTab, setActiveTab] = useState('pricing');
   const [cumulativeTotal, setCumulativeTotal] = useState(0);
   const [recentAdditions, setRecentAdditions] = useState<number[]>([]);
+  const [currentLocation, setCurrentLocation] = useState<Location.LocationObject | null>(null);
+  const [destination, setDestination] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [route, setRoute] = useState<RouteResult | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Animation values
   const distanceAnim = useRef(new Animated.Value(INITIAL_DISTANCE)).current;
@@ -207,6 +216,9 @@ export default function NavigationScreen() {
     // Initialize immediately without loading delays
     setShowCancelButton(!!hasCompleteOrderData);
     
+    // Initialize location services
+    initializeLocationServices();
+    
     // Animate buttons in smoothly
     setTimeout(() => {
       Animated.timing(buttonsOpacityAnim, {
@@ -218,8 +230,54 @@ export default function NavigationScreen() {
     
     return () => {
       if (tripTimer.current) clearInterval(tripTimer.current);
+      LocationService.stopLocationTracking();
     };
   }, []);
+
+  const initializeLocationServices = async () => {
+    try {
+      // Get current location
+      const location = await LocationService.getCurrentLocation();
+      if (location) {
+        setCurrentLocation(location);
+      }
+
+      // Start location tracking
+      const trackingStarted = await LocationService.startLocationTracking(
+        (location) => {
+          setCurrentLocation(location);
+          if (isNavigating && route) {
+            updateNavigationProgress(location);
+          }
+        },
+        { accuracy: Location.Accuracy.High, timeInterval: 3000, distanceInterval: 10 }
+      );
+
+      if (!trackingStarted) {
+        console.warn('Location tracking could not be started');
+      }
+    } catch (error) {
+      console.error('Location services initialization failed:', error);
+    }
+  };
+
+  const updateNavigationProgress = (location: Location.LocationObject) => {
+    if (!route || !route.instructions) return;
+
+    // Calculate distance to next instruction
+    const currentCoords = {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+    };
+
+    // Update distance and fare based on actual movement
+    if (tripState.status === 'active') {
+      const newDistance = distance + 0.01; // Increment based on actual movement
+      setDistance(newDistance);
+      const newFare = BASE_FARE + (newDistance * FARE_RATE) + demandValue + cumulativeTotal;
+      setFare(newFare);
+    }
+  };
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, index) => (
@@ -317,6 +375,7 @@ export default function NavigationScreen() {
     }).start();
   };
   const startTrip = () => {
+    setIsNavigating(true);
     setTripState({
       status: 'active',
       startTime: Date.now(),
@@ -340,6 +399,40 @@ export default function NavigationScreen() {
 
     // Start trip simulation
     startTripSimulation();
+    
+    // Calculate route if we have destination
+    if (hasCompleteOrderData && currentLocation) {
+      calculateRouteToDestination();
+    }
+  };
+
+  const calculateRouteToDestination = async () => {
+    if (!currentLocation) return;
+
+    try {
+      // For demo, we'll use a mock destination based on order data
+      // In real implementation, geocode the destination address
+      const mockDestination = {
+        latitude: currentLocation.coords.latitude + 0.01,
+        longitude: currentLocation.coords.longitude + 0.01,
+      };
+      
+      setDestination(mockDestination);
+      
+      const routeResult = await NavigationService.calculateRoute(
+        {
+          latitude: currentLocation.coords.latitude,
+          longitude: currentLocation.coords.longitude,
+        },
+        mockDestination
+      );
+      
+      if (routeResult) {
+        setRoute(routeResult);
+      }
+    } catch (error) {
+      console.error('Route calculation failed:', error);
+    }
   };
 
   const startTripSimulation = () => {
@@ -389,6 +482,7 @@ export default function NavigationScreen() {
 
   const handleDropoffConfirm = () => {
     if (tripTimer.current) clearInterval(tripTimer.current);
+    setIsNavigating(false);
     setTripState({
       status: 'completed',
       startTime: null,
@@ -399,6 +493,7 @@ export default function NavigationScreen() {
 
   const resetTrip = () => {
     if (tripTimer.current) clearInterval(tripTimer.current);
+    setIsNavigating(false);
     setTripState({
       status: 'idle',
       startTime: null,
@@ -786,14 +881,27 @@ export default function NavigationScreen() {
 
         {/* Map Placeholder for Web */}
         <View style={styles.mapContainer}>
-          <View style={styles.mapPlaceholder}>
-            <MapPin size={48} color="#6B7280" />
-            <Text style={styles.placeholderTitle}>Navigation Map</Text>
-            <Text style={styles.placeholderText}>
-              Interactive maps are not available on web platform.
-              {'\n'}Use the mobile app for full navigation features.
-            </Text>
-          </View>
+          <MapContainer
+            currentLocation={currentLocation}
+            destination={destination}
+            route={route?.coordinates}
+            onLocationChange={(location) => {
+              setCurrentLocation(location);
+              if (isNavigating) {
+                updateNavigationProgress(location);
+              }
+            }}
+          />
+          
+          {/* Voice Guidance Overlay */}
+          {isNavigating && route && (
+            <VoiceGuidance
+              currentInstruction={route.instructions[0] || null}
+              nextInstruction={route.instructions[1] || null}
+              distanceToNext={100}
+              isNavigating={isNavigating}
+            />
+          )}
 
           {/* Trip Status Overlay */}
           <View style={styles.statusOverlay}>
