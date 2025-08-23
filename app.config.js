@@ -3,6 +3,7 @@ export default {
     name: process.env.NODE_ENV === 'production' ? 'White Heart' : 'White Heart (Dev)',
     slug: 'white-heart-taxi',
     version: '1.0.0',
+    scheme: 'whiteheart',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
     userInterfaceStyle: 'automatic',
