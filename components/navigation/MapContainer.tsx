@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Alert, Platform } from 'react-native';
+import { View, StyleSheet, Alert, Platform, Text } from 'react-native';
 import * as Location from 'expo-location';
+import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
 interface MapContainerProps {
   currentLocation: Location.LocationObject | null;
@@ -27,11 +28,10 @@ export default function MapContainer({
   });
 
   const [mapReady, setMapReady] = useState(false);
-
-  const [mapReady, setMapReady] = useState(false);
+  const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
-    if (currentLocation && mapReady) {
+    if (currentLocation && mapReady && followUser) {
       const newRegion = {
         latitude: currentLocation.coords.latitude,
         longitude: currentLocation.coords.longitude,
@@ -39,17 +39,8 @@ export default function MapContainer({
         longitudeDelta: 0.01,
       };
       
-        setRegion(newRegion);
-        mapRef.current?.animateToRegion(newRegion, 1000);
-      }
-  const handleMapReady = () => {
-    setMapReady(true);
-  };
-
-  const handleRegionChange = (newRegion: any) => {
-    setRegion(newRegion);
-  };
-
+      setRegion(newRegion);
+      mapRef.current?.animateToRegion(newRegion, 1000);
       
       onLocationChange?.(currentLocation);
     }
@@ -75,37 +66,39 @@ export default function MapContainer({
 
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        style={styles.map}
-        region={region}
-        onMapReady={handleMapReady}
-        onRegionChangeComplete={handleRegionChange}
-        showsUserLocation={true}
-        showsMyLocationButton={true}
-        showsCompass={true}
-        showsTraffic={showTraffic}
-        followsUserLocation={followUser}
-        showsBuildings={true}
-        showsIndoors={true}
-        loadingEnabled={true}
       {Platform.OS === 'web' ? (
         <View style={styles.webMapPlaceholder}>
           <Text style={styles.webMapText}>Interactive maps are not available on web platform.</Text>
           <Text style={styles.webMapSubtext}>Use the mobile app for full navigation features.</Text>
         </View>
       ) : (
-        <View style={styles.nativeMapContainer}>
-          <Text style={styles.mapStatusText}>
-            {currentLocation ? 'GPS Connected' : 'Connecting to GPS...'}
-          </Text>
-          {currentLocation && (
-            <Text style={styles.coordinatesText}>
-              {currentLocation.coords.latitude.toFixed(6)}, {currentLocation.coords.longitude.toFixed(6)}
+        <MapView
+          ref={mapRef}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          style={styles.map}
+          region={region}
+          onMapReady={handleMapReady}
+          onRegionChangeComplete={handleRegionChange}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
+          showsCompass={true}
+          showsTraffic={showTraffic}
+          followsUserLocation={followUser}
+          showsBuildings={true}
+          showsIndoors={true}
+          loadingEnabled={true}
+        >
+          <View style={styles.nativeMapContainer}>
+            <Text style={styles.mapStatusText}>
+              {currentLocation ? 'GPS Connected' : 'Connecting to GPS...'}
             </Text>
-          )}
-        </View>
+            {currentLocation && (
+              <Text style={styles.coordinatesText}>
+                {currentLocation.coords.latitude.toFixed(6)}, {currentLocation.coords.longitude.toFixed(6)}
+              </Text>
+            )}
+          </View>
+        </MapView>
       )}
     </View>
   );
@@ -113,6 +106,9 @@ export default function MapContainer({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  map: {
     flex: 1,
   },
   webMapPlaceholder: {
