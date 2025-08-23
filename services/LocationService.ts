@@ -15,6 +15,7 @@ export interface LocationOptions {
 export class LocationService {
   private static locationSubscription: Location.LocationSubscription | null = null;
   private static isTracking = false;
+  private static readonly API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   /**
    * Request location permissions from user

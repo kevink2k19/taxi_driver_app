@@ -27,7 +27,7 @@ export interface PlaceSearchResult {
 }
 
 export class GeocodeService {
-  private static readonly API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  private static readonly API_KEY = 'AIzaSyBtinZ-NpA8cvnCJQKZ7NJwKl6QkV4o_Qg';
   private static readonly GEOCODE_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
   private static readonly PLACES_URL = 'https://maps.googleapis.com/maps/api/place';
 
