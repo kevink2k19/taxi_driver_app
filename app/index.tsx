@@ -35,7 +35,10 @@ export default function IndexScreen() {
       }
     };
 
-    initializeApp();
+    initializeApp().catch((error) => {
+      console.error('App initialization failed:', error);
+      router.replace('/auth/login');
+    });
   }, [router]);
 
   return (

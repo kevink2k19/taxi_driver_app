@@ -42,7 +42,10 @@ export default function VoiceGuidance({
       }
     };
 
-    initializeVoice();
+    initializeVoice().catch((error) => {
+      console.error('Voice initialization failed:', error);
+      setIsInitialized(false);
+    });
 
     return () => {
       VoiceService.stop();

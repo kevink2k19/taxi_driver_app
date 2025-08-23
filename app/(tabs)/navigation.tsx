@@ -154,7 +154,7 @@ export default function NavigationScreen() {
         'Unable to initiate phone call. Please try again.',
         [
           { text: 'Cancel' },
-          { text: 'Retry', onPress: handleCallCustomer },
+          { text: 'Retry', onPress: () => handleCallCustomer().catch(console.error) },
           { 
             text: 'Show Number', 
             onPress: () => Alert.alert('Customer Phone', orderData.customerPhone)

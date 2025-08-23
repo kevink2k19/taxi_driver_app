@@ -19,7 +19,11 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   const [language, setCurrentLanguage] = useState<Language>('en');
 
   useEffect(() => {
-    loadLanguage();
+    loadLanguage().catch((error) => {
+      console.error('Failed to load language:', error);
+      // Fallback to default language on error
+      setCurrentLanguage('en');
+    });
   }, []);
 
   const loadLanguage = async () => {
@@ -30,6 +34,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
       }
     } catch (error) {
       console.error('Error loading language:', error);
+      throw error; // Re-throw to be caught by the useEffect handler
     }
   };
 
